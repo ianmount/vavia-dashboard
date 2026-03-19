@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { ref, onValue, set, remove } from 'firebase/database'
-import { db, FIREBASE_ENABLED } from './firebase'
 import './App.css'
 
 // ── Status config ─────────────────────────────────────────────
@@ -418,62 +416,84 @@ function ProjectTable({ tasks, onUpdateField, onDeleteTask, onAddTask }) {
 // ── App ────────────────────────────────────────────────────────
 export default function App() {
   const [tasks, setTasks] = useState(() => loadFromStorage() ?? SAMPLE_TASKS)
-  const [synced, setSynced] = useState(false)
+  // null = connecting, true = KV live, string = error message
+  const [liveMode, setLiveMode] = useState(null)
+  const tasksRef = useRef(tasks)
 
-  // ── Firebase real-time sync ──
+  useEffect(() => { tasksRef.current = tasks }, [tasks])
+
+  // ── KV: initial load ─────────────────────────────────────────
   useEffect(() => {
-    if (!FIREBASE_ENABLED) return
-
-    const tasksRef = ref(db, 'tasks')
-    const unsubscribe = onValue(tasksRef, (snapshot) => {
-      const data = snapshot.val()
-      if (data) {
-        const arr = Object.values(data).sort((a, b) => Number(a.id) - Number(b.id))
-        setTasks(arr)
-        setSynced(true)
-      } else {
-        // First visit — seed the database with initial data
-        const initial = {}
-        SAMPLE_TASKS.forEach(t => { initial[t.id] = t })
-        set(tasksRef, initial)
+    async function init() {
+      try {
+        const res = await fetch('/api/tasks')
+        const data = await res.json()
+        if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
+        if (data.length === 0) {
+          await postTasks(SAMPLE_TASKS)
+          setTasks(SAMPLE_TASKS)
+        } else {
+          setTasks(data)
+        }
+        setLiveMode(true)
+      } catch (err) {
+        setLiveMode(err?.message ?? 'API unreachable — using local storage')
       }
-    })
-
-    return unsubscribe
+    }
+    init()
   }, [])
 
-  // ── Persist to localStorage whenever tasks change (fallback) ──
+  // ── KV: poll every 3s to pick up changes from other viewers ──
   useEffect(() => {
-    if (!FIREBASE_ENABLED) {
-      saveToStorage(tasks)
-    }
-  }, [tasks])
+    if (liveMode !== true) return
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/tasks')
+        if (!res.ok) return
+        const data = await res.json()
+        if (JSON.stringify(data) !== JSON.stringify(tasksRef.current)) {
+          setTasks(data)
+        }
+      } catch {}
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [liveMode])
 
-  // ── Task operations ────────────────────────────────────────
+  // ── Fallback: localStorage when KV not available ─────────────
+  useEffect(() => {
+    if (liveMode !== true) saveToStorage(tasks)
+  }, [tasks, liveMode])
+
+  // ── Write full tasks array to KV ─────────────────────────────
+  async function postTasks(updated) {
+    try {
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      })
+    } catch {}
+  }
+
+  // ── Task operations ──────────────────────────────────────────
   function updateField(id, field, value) {
-    const parsed = field === 'hourEstimate' || field === 'actualHours'
+    const parsed = (field === 'hourEstimate' || field === 'actualHours')
       ? (value === '' ? '' : Number(value))
       : value
-
-    if (FIREBASE_ENABLED) {
-      set(ref(db, `tasks/${id}/${field}`), parsed ?? '')
-    } else {
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, [field]: parsed } : t))
-    }
+    const updated = tasksRef.current.map(t => t.id === id ? { ...t, [field]: parsed } : t)
+    setTasks(updated)
+    if (liveMode === true) postTasks(updated)
   }
 
   function deleteTask(id) {
-    if (FIREBASE_ENABLED) {
-      remove(ref(db, `tasks/${id}`))
-    } else {
-      setTasks(prev => prev.filter(t => t.id !== id))
-    }
+    const updated = tasksRef.current.filter(t => t.id !== id)
+    setTasks(updated)
+    if (liveMode === true) postTasks(updated)
   }
 
   function addTask() {
-    const id = nextId()
     const newTask = {
-      id,
+      id: nextId(),
       status: 'Approved',
       task: '',
       hourEstimate: '',
@@ -481,16 +501,15 @@ export default function App() {
       notes: '',
       actualHours: '',
     }
-    if (FIREBASE_ENABLED) {
-      set(ref(db, `tasks/${id}`), newTask)
-    } else {
-      setTasks(prev => [...prev, newTask])
-    }
+    const updated = [...tasksRef.current, newTask]
+    setTasks(updated)
+    if (liveMode === true) postTasks(updated)
   }
 
-  const syncLabel = FIREBASE_ENABLED
-    ? (synced ? '● Live — changes sync for all viewers' : '○ Connecting…')
-    : '● Saved locally in this browser'
+  const syncLabel =
+    liveMode === null   ? '○ Connecting…' :
+    liveMode === true   ? '● Live — changes sync for all viewers' :
+    `⚠ ${liveMode}`
 
   return (
     <div className="dashboard">
@@ -519,7 +538,7 @@ export default function App() {
 
       <footer className="footer">
         <span>© {new Date().getFullYear()} VaVia — Partner Portal</span>
-        <span className={`sync-status ${FIREBASE_ENABLED && synced ? 'sync-live' : ''}`}>
+        <span className={`sync-status ${liveMode === true ? 'sync-live' : ''}`}>
           {syncLabel}
         </span>
       </footer>
