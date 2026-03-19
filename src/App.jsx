@@ -88,7 +88,7 @@ function saveToStorage(tasks) {
 function RetainerUsage({ tasks }) {
   const used = tasks.reduce((sum, t) => sum + (Number(t.actualHours) || 0), 0)
   const remaining = RETAINER_HOURS - used
-  const overHours = Math.max(used - RETAINER_HOURS, 0)
+  const overHours = Math.floor(Math.max(used - RETAINER_HOURS, 0))
   const additionalCost = overHours * OVERAGE_RATE
   const pct = Math.min((used / RETAINER_HOURS) * 100, 100)
 
