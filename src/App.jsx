@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { ref, onValue, set, remove } from 'firebase/database'
+import { db, FIREBASE_ENABLED } from './firebase'
 import './App.css'
 
 // ── Status config ─────────────────────────────────────────────
@@ -66,6 +68,23 @@ const nextId = () => ++_id
 
 const RETAINER_HOURS = 15
 const OVERAGE_RATE = 150
+
+// ── localStorage helpers ───────────────────────────────────────
+const LS_KEY = 'vavia_tasks'
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(LS_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return null
+}
+
+function saveToStorage(tasks) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(tasks))
+  } catch {}
+}
 
 // ── RetainerUsage ──────────────────────────────────────────────
 function RetainerUsage({ tasks }) {
@@ -147,30 +166,14 @@ function RetainerUsage({ tasks }) {
 // ── ProjectTable ───────────────────────────────────────────────
 const FILTERS = ['All', 'Approved', 'On Hold', 'Completed']
 
-function ProjectTable({ tasks, setTasks }) {
+function ProjectTable({ tasks, onUpdateField, onDeleteTask, onAddTask }) {
   const [filter, setFilter] = useState('All')
 
   const visible = filter === 'All' ? tasks : tasks.filter(t => t.status === filter)
 
-  function addTask() {
-    setTasks(prev => [...prev, {
-      id: nextId(),
-      status: 'Approved',
-      task: '',
-      hourEstimate: '',
-      timeline: '',
-      notes: '',
-      actualHours: '',
-    }])
+  function handleAdd() {
+    onAddTask()
     setFilter('All')
-  }
-
-  function updateField(id, field, value) {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t))
-  }
-
-  function deleteTask(id) {
-    setTasks(prev => prev.filter(t => t.id !== id))
   }
 
   return (
@@ -203,7 +206,7 @@ function ProjectTable({ tasks, setTasks }) {
             ))}
           </div>
         </div>
-        <button className="add-task-btn" onClick={addTask}>
+        <button className="add-task-btn" onClick={handleAdd}>
           <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Add Task
         </button>
       </div>
@@ -240,7 +243,7 @@ function ProjectTable({ tasks, setTasks }) {
                       <select
                         className="status-select"
                         value={row.status}
-                        onChange={e => updateField(row.id, 'status', e.target.value)}
+                        onChange={e => onUpdateField(row.id, 'status', e.target.value)}
                         style={{ color: 'inherit', fontWeight: 'inherit' }}
                       >
                         {STATUSES.map(s => (
@@ -254,9 +257,10 @@ function ProjectTable({ tasks, setTasks }) {
                   <td>
                     <input
                       className="inline-input task-name"
-                      value={row.task}
+                      defaultValue={row.task}
+                      key={`task-${row.id}-${row.task}`}
                       placeholder="Task name…"
-                      onChange={e => updateField(row.id, 'task', e.target.value)}
+                      onBlur={e => onUpdateField(row.id, 'task', e.target.value)}
                     />
                   </td>
 
@@ -266,9 +270,10 @@ function ProjectTable({ tasks, setTasks }) {
                       className="inline-input hours"
                       type="number"
                       min="0"
-                      value={row.hourEstimate}
+                      defaultValue={row.hourEstimate}
+                      key={`est-${row.id}-${row.hourEstimate}`}
                       placeholder="—"
-                      onChange={e => updateField(row.id, 'hourEstimate', e.target.value)}
+                      onBlur={e => onUpdateField(row.id, 'hourEstimate', e.target.value)}
                     />
                     {row.hourEstimate ? <span style={{ fontSize: 12, color: 'var(--gray-text)', marginLeft: 2 }}>hrs</span> : null}
                   </td>
@@ -279,9 +284,10 @@ function ProjectTable({ tasks, setTasks }) {
                       className={`inline-input hours${isOver ? ' over' : ''}`}
                       type="number"
                       min="0"
-                      value={row.actualHours}
+                      defaultValue={row.actualHours}
+                      key={`actual-${row.id}-${row.actualHours}`}
                       placeholder="—"
-                      onChange={e => updateField(row.id, 'actualHours', e.target.value)}
+                      onBlur={e => onUpdateField(row.id, 'actualHours', e.target.value)}
                     />
                     {row.actualHours ? <span style={{ fontSize: 12, color: isOver ? '#a04040' : 'var(--gray-text)', marginLeft: 2 }}>hrs</span> : null}
                     {isOver && (
@@ -295,9 +301,10 @@ function ProjectTable({ tasks, setTasks }) {
                   <td>
                     <input
                       className="inline-input timeline-val"
-                      value={row.timeline}
+                      defaultValue={row.timeline}
+                      key={`timeline-${row.id}-${row.timeline}`}
                       placeholder="e.g. 2 weeks"
-                      onChange={e => updateField(row.id, 'timeline', e.target.value)}
+                      onBlur={e => onUpdateField(row.id, 'timeline', e.target.value)}
                     />
                   </td>
 
@@ -305,9 +312,10 @@ function ProjectTable({ tasks, setTasks }) {
                   <td>
                     <input
                       className="inline-input notes"
-                      value={row.notes}
+                      defaultValue={row.notes}
+                      key={`notes-${row.id}-${row.notes}`}
                       placeholder="Add notes…"
-                      onChange={e => updateField(row.id, 'notes', e.target.value)}
+                      onBlur={e => onUpdateField(row.id, 'notes', e.target.value)}
                     />
                   </td>
 
@@ -315,7 +323,7 @@ function ProjectTable({ tasks, setTasks }) {
                   <td>
                     <button
                       className="row-delete-btn"
-                      onClick={() => deleteTask(row.id)}
+                      onClick={() => onDeleteTask(row.id)}
                       title="Remove row"
                     >×</button>
                   </td>
@@ -343,7 +351,80 @@ function ProjectTable({ tasks, setTasks }) {
 
 // ── App ────────────────────────────────────────────────────────
 export default function App() {
-  const [tasks, setTasks] = useState(SAMPLE_TASKS)
+  const [tasks, setTasks] = useState(() => loadFromStorage() ?? SAMPLE_TASKS)
+  const [synced, setSynced] = useState(false)
+
+  // ── Firebase real-time sync ──
+  useEffect(() => {
+    if (!FIREBASE_ENABLED) return
+
+    const tasksRef = ref(db, 'tasks')
+    const unsubscribe = onValue(tasksRef, (snapshot) => {
+      const data = snapshot.val()
+      if (data) {
+        const arr = Object.values(data).sort((a, b) => Number(a.id) - Number(b.id))
+        setTasks(arr)
+        setSynced(true)
+      } else {
+        // First visit — seed the database with initial data
+        const initial = {}
+        SAMPLE_TASKS.forEach(t => { initial[t.id] = t })
+        set(tasksRef, initial)
+      }
+    })
+
+    return unsubscribe
+  }, [])
+
+  // ── Persist to localStorage whenever tasks change (fallback) ──
+  useEffect(() => {
+    if (!FIREBASE_ENABLED) {
+      saveToStorage(tasks)
+    }
+  }, [tasks])
+
+  // ── Task operations ────────────────────────────────────────
+  function updateField(id, field, value) {
+    const parsed = field === 'hourEstimate' || field === 'actualHours'
+      ? (value === '' ? '' : Number(value))
+      : value
+
+    if (FIREBASE_ENABLED) {
+      set(ref(db, `tasks/${id}/${field}`), parsed ?? '')
+    } else {
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, [field]: parsed } : t))
+    }
+  }
+
+  function deleteTask(id) {
+    if (FIREBASE_ENABLED) {
+      remove(ref(db, `tasks/${id}`))
+    } else {
+      setTasks(prev => prev.filter(t => t.id !== id))
+    }
+  }
+
+  function addTask() {
+    const id = nextId()
+    const newTask = {
+      id,
+      status: 'Approved',
+      task: '',
+      hourEstimate: '',
+      timeline: '',
+      notes: '',
+      actualHours: '',
+    }
+    if (FIREBASE_ENABLED) {
+      set(ref(db, `tasks/${id}`), newTask)
+    } else {
+      setTasks(prev => [...prev, newTask])
+    }
+  }
+
+  const syncLabel = FIREBASE_ENABLED
+    ? (synced ? '● Live — changes sync for all viewers' : '○ Connecting…')
+    : '● Saved locally in this browser'
 
   return (
     <div className="dashboard">
@@ -362,12 +443,19 @@ export default function App() {
         </p>
 
         <RetainerUsage tasks={tasks} />
-        <ProjectTable tasks={tasks} setTasks={setTasks} />
+        <ProjectTable
+          tasks={tasks}
+          onUpdateField={updateField}
+          onDeleteTask={deleteTask}
+          onAddTask={addTask}
+        />
       </main>
 
       <footer className="footer">
         <span>© {new Date().getFullYear()} VaVia — Partner Portal</span>
-        <span style={{ opacity: 0.6 }}>All data is session-only</span>
+        <span className={`sync-status ${FIREBASE_ENABLED && synced ? 'sync-live' : ''}`}>
+          {syncLabel}
+        </span>
       </footer>
     </div>
   )
