@@ -510,7 +510,149 @@
 .inline-input.notes {
   font-size: 13px;
   color: var(--gray-text);
-  width: 200px;
+  width: 180px;
+}
+
+/* Notes cell layout */
+.notes-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.notes-expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-text);
+  opacity: 0;
+  padding: 2px 3px;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+tr:hover .notes-expand-btn {
+  opacity: 1;
+}
+
+.notes-expand-btn:hover {
+  color: var(--brown);
+}
+
+/* ── Notes Modal ── */
+.notes-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 22, 18, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.notes-modal {
+  background: var(--white);
+  border: 1px solid var(--gray-mid);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(30, 22, 18, 0.18);
+}
+
+.notes-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid var(--gray-light);
+}
+
+.notes-modal-task {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--brown);
+  letter-spacing: -0.3px;
+  margin-top: 2px;
+}
+
+.notes-modal-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--gray-text);
+  cursor: pointer;
+  padding: 0 4px;
+  margin-top: -2px;
+  transition: color 0.15s;
+}
+
+.notes-modal-close:hover {
+  color: var(--brown);
+}
+
+.notes-modal-textarea {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--dark);
+  line-height: 1.6;
+  border: none;
+  outline: none;
+  padding: 20px 24px;
+  resize: none;
+  min-height: 180px;
+  background: transparent;
+}
+
+.notes-modal-textarea::placeholder {
+  color: var(--gray-text);
+  opacity: 0.7;
+}
+
+.notes-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--gray-light);
+}
+
+.notes-modal-cancel {
+  background: transparent;
+  border: 1px solid var(--gray-mid);
+  color: var(--gray-text);
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.notes-modal-cancel:hover {
+  border-color: var(--brown);
+  color: var(--brown);
+}
+
+.notes-modal-save {
+  background: var(--brown);
+  border: none;
+  color: var(--cream);
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.notes-modal-save:hover {
+  background: var(--brown-dark);
 }
 
 /* Delete row button */

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ref, onValue, set, remove } from 'firebase/database'
 import { db, FIREBASE_ENABLED } from './firebase'
 import './App.css'
@@ -163,11 +163,59 @@ function RetainerUsage({ tasks }) {
   )
 }
 
+// ── NotesModal ─────────────────────────────────────────────────
+function NotesModal({ note, onClose, onSave }) {
+  const [value, setValue] = useState(note.notes ?? '')
+  const textareaRef = useRef(null)
+
+  useEffect(() => {
+    textareaRef.current?.focus()
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', handler)
+      document.body.style.overflow = ''
+    }
+  }, [onClose])
+
+  function handleSave() {
+    onSave(note.id, 'notes', value)
+    onClose()
+  }
+
+  return (
+    <div className="notes-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="notes-modal">
+        <div className="notes-modal-header">
+          <div>
+            <div className="section-label">Notes</div>
+            <div className="notes-modal-task">{note.task || 'Untitled task'}</div>
+          </div>
+          <button className="notes-modal-close" onClick={onClose}>×</button>
+        </div>
+        <textarea
+          ref={textareaRef}
+          className="notes-modal-textarea"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          placeholder="Add notes…"
+        />
+        <div className="notes-modal-footer">
+          <button className="notes-modal-cancel" onClick={onClose}>Cancel</button>
+          <button className="notes-modal-save" onClick={handleSave}>Save</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── ProjectTable ───────────────────────────────────────────────
 const FILTERS = ['All', 'Approved', 'On Hold', 'Completed']
 
 function ProjectTable({ tasks, onUpdateField, onDeleteTask, onAddTask }) {
   const [filter, setFilter] = useState('All')
+  const [expandedNote, setExpandedNote] = useState(null)
 
   const visible = filter === 'All' ? tasks : tasks.filter(t => t.status === filter)
 
@@ -177,6 +225,14 @@ function ProjectTable({ tasks, onUpdateField, onDeleteTask, onAddTask }) {
   }
 
   return (
+    <>
+    {expandedNote && (
+      <NotesModal
+        note={expandedNote}
+        onClose={() => setExpandedNote(null)}
+        onSave={onUpdateField}
+      />
+    )}
     <div className="projects-section">
       <div className="projects-toolbar">
         <div>
@@ -309,7 +365,7 @@ function ProjectTable({ tasks, onUpdateField, onDeleteTask, onAddTask }) {
                   </td>
 
                   {/* Notes */}
-                  <td>
+                  <td className="notes-cell">
                     <input
                       className="inline-input notes"
                       defaultValue={row.notes}
@@ -317,6 +373,15 @@ function ProjectTable({ tasks, onUpdateField, onDeleteTask, onAddTask }) {
                       placeholder="Add notes…"
                       onBlur={e => onUpdateField(row.id, 'notes', e.target.value)}
                     />
+                    <button
+                      className="notes-expand-btn"
+                      onClick={() => setExpandedNote(row)}
+                      title="Expand notes"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7.5 1.5H10.5V4.5M10.5 1.5L6.5 5.5M4.5 10.5H1.5V7.5M1.5 10.5L5.5 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
                   </td>
 
                   {/* Delete */}
@@ -346,6 +411,7 @@ function ProjectTable({ tasks, onUpdateField, onDeleteTask, onAddTask }) {
         </div>
       )}
     </div>
+    </>
   )
 }
 
