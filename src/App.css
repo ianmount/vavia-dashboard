@@ -140,7 +140,7 @@
 
 .retainer-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 24px;
   margin-bottom: 28px;
 }
@@ -559,7 +559,7 @@ tr:hover .row-delete-btn {
   .header { padding: 0 24px; }
   .main { padding: 28px 24px 48px; }
   .footer { padding: 16px 24px; }
-  .retainer-stats { grid-template-columns: repeat(2, 1fr); }
+  .retainer-stats { grid-template-columns: repeat(2, 1fr); gap: 16px; }
   .retainer-card { padding: 24px; }
   .table-wrap { overflow-x: auto; }
   .table-wrap table { min-width: 700px; }

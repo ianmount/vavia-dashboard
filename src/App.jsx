@@ -3,12 +3,9 @@ import './App.css'
 
 // ── Status config ─────────────────────────────────────────────
 const STATUSES = [
-  { value: 'Pending',     label: 'Pending',     cls: 'badge-pending' },
-  { value: 'Approved',    label: 'Approved',    cls: 'badge-approved' },
-  { value: 'In Progress', label: 'In Progress', cls: 'badge-in-progress' },
-  { value: 'Completed',   label: 'Completed',   cls: 'badge-completed' },
-  { value: 'On Hold',     label: 'On Hold',     cls: 'badge-on-hold' },
-  { value: 'Rejected',    label: 'Rejected',    cls: 'badge-rejected' },
+  { value: 'Approved',  label: 'Approved',  cls: 'badge-approved' },
+  { value: 'On Hold',   label: 'On Hold',   cls: 'badge-on-hold' },
+  { value: 'Completed', label: 'Completed', cls: 'badge-completed' },
 ]
 
 const statusClass = (status) =>
@@ -27,7 +24,7 @@ const SAMPLE_TASKS = [
   },
   {
     id: 2,
-    status: 'In Progress',
+    status: 'Approved',
     task: 'Partner dashboard build-out',
     hourEstimate: 20,
     timeline: '3 weeks',
@@ -36,7 +33,7 @@ const SAMPLE_TASKS = [
   },
   {
     id: 3,
-    status: 'Pending',
+    status: 'On Hold',
     task: 'Email campaign template',
     hourEstimate: 6,
     timeline: '1 week',
@@ -67,31 +64,26 @@ const SAMPLE_TASKS = [
 let _id = 100
 const nextId = () => ++_id
 
+const RETAINER_HOURS = 15
+const OVERAGE_RATE = 150
+
 // ── RetainerUsage ──────────────────────────────────────────────
 function RetainerUsage({ tasks }) {
-  const [totalHours, setTotalHours] = useState(40)
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(40)
-
   const used = tasks.reduce((sum, t) => sum + (Number(t.actualHours) || 0), 0)
-  const remaining = totalHours - used
-  const pct = Math.min((used / totalHours) * 100, 100)
+  const remaining = RETAINER_HOURS - used
+  const overHours = Math.max(used - RETAINER_HOURS, 0)
+  const additionalCost = overHours * OVERAGE_RATE
+  const pct = Math.min((used / RETAINER_HOURS) * 100, 100)
 
   const barCls =
     pct >= 100 ? 'bar-over' :
     pct >= 80  ? 'bar-low'  : 'bar-good'
 
   const remainingCls =
-    remaining < 0         ? 'remaining critical' :
-    pct >= 80             ? 'remaining low'      : 'remaining good'
+    remaining < 0 ? 'remaining critical' :
+    pct >= 80     ? 'remaining low'      : 'remaining good'
 
   const month = new Date().toLocaleString('default', { month: 'long', year: 'numeric' })
-
-  function saveRetainer() {
-    const val = parseInt(draft, 10)
-    if (!isNaN(val) && val > 0) setTotalHours(val)
-    setEditing(false)
-  }
 
   return (
     <div className="retainer-card">
@@ -101,14 +93,11 @@ function RetainerUsage({ tasks }) {
           <div className="retainer-title">Current Retainer Hour Usage</div>
           <div className="retainer-period">{month}</div>
         </div>
-        <button className="retainer-edit-btn" onClick={() => { setDraft(totalHours); setEditing(e => !e) }}>
-          {editing ? 'Cancel' : 'Edit Hours'}
-        </button>
       </div>
 
       <div className="retainer-stats">
         <div className="stat-item">
-          <span className="stat-value">{totalHours}</span>
+          <span className="stat-value">{RETAINER_HOURS}</span>
           <span className="stat-label">Total Retainer Hours</span>
           <span className="stat-sub">per month</span>
         </div>
@@ -122,9 +111,20 @@ function RetainerUsage({ tasks }) {
             {remaining < 0 ? `+${Math.abs(remaining)} over` : remaining}
           </span>
           <span className="stat-label">
-            {remaining < 0 ? 'Hours Over Budget' : 'Hours Remaining'}
+            {remaining < 0 ? 'Hours Over Retainer' : 'Hours Remaining'}
           </span>
           <span className="stat-sub">&nbsp;</span>
+        </div>
+        <div className="stat-item">
+          <span className={`stat-value ${additionalCost > 0 ? 'remaining critical' : 'remaining good'}`}>
+            {additionalCost > 0 ? `$${additionalCost.toLocaleString()}` : '—'}
+          </span>
+          <span className="stat-label">Additional Cost</span>
+          <span className="stat-sub">
+            {additionalCost > 0
+              ? `${overHours} hr${overHours !== 1 ? 's' : ''} × $${OVERAGE_RATE}/hr`
+              : 'within retainer'}
+          </span>
         </div>
       </div>
 
@@ -137,31 +137,15 @@ function RetainerUsage({ tasks }) {
         </div>
         <div className="retainer-bar-labels">
           <span>0 hrs</span>
-          <span>{totalHours} hrs</span>
+          <span>{RETAINER_HOURS} hrs</span>
         </div>
       </div>
-
-      {editing && (
-        <div className="retainer-edit-row">
-          <label>Total retainer hours:</label>
-          <input
-            className="retainer-edit-row input"
-            type="number"
-            min="1"
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && saveRetainer()}
-            autoFocus
-          />
-          <button className="retainer-save-btn" onClick={saveRetainer}>Save</button>
-        </div>
-      )}
     </div>
   )
 }
 
 // ── ProjectTable ───────────────────────────────────────────────
-const FILTERS = ['All', 'Pending', 'Approved', 'In Progress', 'Completed', 'On Hold', 'Rejected']
+const FILTERS = ['All', 'Approved', 'On Hold', 'Completed']
 
 function ProjectTable({ tasks, setTasks }) {
   const [filter, setFilter] = useState('All')
@@ -171,7 +155,7 @@ function ProjectTable({ tasks, setTasks }) {
   function addTask() {
     setTasks(prev => [...prev, {
       id: nextId(),
-      status: 'Pending',
+      status: 'Approved',
       task: '',
       hourEstimate: '',
       timeline: '',
@@ -228,7 +212,7 @@ function ProjectTable({ tasks, setTasks }) {
         <table>
           <thead>
             <tr>
-              <th>Approval Status</th>
+              <th>Status</th>
               <th>Task</th>
               <th>Hour Estimate</th>
               <th>Actual Hours</th>
