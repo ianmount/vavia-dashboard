@@ -524,7 +524,7 @@ export default function App() {
       <main className="main">
         <h1 className="page-title">Partner Dashboard</h1>
         <p className="page-subtitle">
-          Track retainer hours and manage project approvals with your VaVia team.
+          Track retainer hours and manage project approvals.
         </p>
 
         <RetainerUsage tasks={tasks} />
