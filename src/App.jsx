@@ -125,7 +125,7 @@ function RetainerUsage({ tasks }) {
         </div>
         <div className="stat-item">
           <span className={`stat-value ${remainingCls}`}>
-            {remaining < 0 ? `+${Math.abs(remaining)} over` : remaining}
+            {remaining < 0 ? `+${Math.floor(Math.abs(remaining))} over` : remaining}
           </span>
           <span className="stat-label">
             {remaining < 0 ? 'Hours Over Retainer' : 'Hours Remaining'}
