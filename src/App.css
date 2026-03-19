@@ -554,6 +554,17 @@ tr:hover .row-delete-btn {
   color: var(--brown);
 }
 
+.sync-status {
+  font-size: 12px;
+  color: var(--gray-text);
+  opacity: 0.7;
+}
+
+.sync-status.sync-live {
+  color: var(--sage);
+  opacity: 1;
+}
+
 /* ── Responsive ── */
 @media (max-width: 900px) {
   .header { padding: 0 24px; }
