@@ -443,20 +443,45 @@ export default function App() {
     init()
   }, [])
 
-  // ── KV: poll every 3s to pick up changes from other viewers ──
+  // ── KV: poll every 30s, only when tab is visible ─────────────
   useEffect(() => {
     if (liveMode !== true) return
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch('/api/tasks')
-        if (!res.ok) return
-        const data = await res.json()
-        if (JSON.stringify(data) !== JSON.stringify(tasksRef.current)) {
-          setTasks(data)
-        }
-      } catch {}
-    }, 3000)
-    return () => clearInterval(interval)
+    let interval = null
+
+    function startPolling() {
+      interval = setInterval(async () => {
+        if (document.visibilityState !== 'visible') return
+        try {
+          const res = await fetch('/api/tasks')
+          if (!res.ok) return
+          const data = await res.json()
+          if (JSON.stringify(data) !== JSON.stringify(tasksRef.current)) {
+            setTasks(data)
+          }
+        } catch {}
+      }, 30000)
+    }
+
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') {
+        // Immediate fetch when tab becomes visible again
+        fetch('/api/tasks')
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (data && JSON.stringify(data) !== JSON.stringify(tasksRef.current)) {
+              setTasks(data)
+            }
+          })
+          .catch(() => {})
+      }
+    }
+
+    startPolling()
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [liveMode])
 
   // ── Fallback: localStorage when KV not available ─────────────
