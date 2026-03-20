@@ -1,5 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import './App.css'
+
+// Realtime client uses the public anon key (safe to expose)
+// Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your Vercel env vars
+const realtimeClient = (
+  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
+    ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
+    : null
+)
 
 // ── Status config ─────────────────────────────────────────────
 const STATUSES = [
@@ -443,9 +452,30 @@ export default function App() {
     init()
   }, [])
 
-  // ── Supabase: refresh when tab becomes visible ───────────────
+  // ── Supabase Realtime: push updates from internal dashboard ──
   useEffect(() => {
-    if (liveMode !== true) return
+    if (liveMode !== true || !realtimeClient) return
+
+    const channel = realtimeClient
+      .channel('tasks-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        fetch('/api/tasks')
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (data && JSON.stringify(data) !== JSON.stringify(tasksRef.current)) {
+              setTasks(data)
+            }
+          })
+          .catch(() => {})
+      })
+      .subscribe()
+
+    return () => { realtimeClient.removeChannel(channel) }
+  }, [liveMode])
+
+  // ── Fallback: refresh when tab becomes visible (no Realtime) ─
+  useEffect(() => {
+    if (liveMode !== true || realtimeClient) return
 
     function handleVisibility() {
       if (document.visibilityState === 'visible') {

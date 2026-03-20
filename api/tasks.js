@@ -21,6 +21,9 @@ export default async function handler(req, res) {
         actualHours: r.actual_hours,
         timeline: r.timeline,
         notes: r.notes,
+        internalNotes: r.internal_notes ?? '',
+        asanaTaskGid: r.asana_task_gid ?? null,
+        basecampTodoId: r.basecamp_todo_id ?? null,
       }))
       res.status(200).json(tasks)
     } catch (err) {
@@ -39,6 +42,9 @@ export default async function handler(req, res) {
         actual_hours: t.actualHours,
         timeline: t.timeline,
         notes: t.notes,
+        internal_notes: t.internalNotes ?? null,
+        asana_task_gid: t.asanaTaskGid ?? null,
+        basecamp_todo_id: t.basecampTodoId ?? null,
       }))
 
       // Upsert new/updated rows first, then delete any rows no longer in the list.
