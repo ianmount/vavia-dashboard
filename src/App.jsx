@@ -416,13 +416,13 @@ function ProjectTable({ tasks, onUpdateField, onDeleteTask, onAddTask }) {
 // ── App ────────────────────────────────────────────────────────
 export default function App() {
   const [tasks, setTasks] = useState(() => loadFromStorage() ?? SAMPLE_TASKS)
-  // null = connecting, true = KV live, string = error message
+  // null = connecting, true = Supabase live, string = error message
   const [liveMode, setLiveMode] = useState(null)
   const tasksRef = useRef(tasks)
 
   useEffect(() => { tasksRef.current = tasks }, [tasks])
 
-  // ── KV: initial load ─────────────────────────────────────────
+  // ── Supabase: initial load ────────────────────────────────────
   useEffect(() => {
     async function init() {
       try {
@@ -443,32 +443,16 @@ export default function App() {
     init()
   }, [])
 
-  // ── KV: poll every 30s, only when tab is visible ─────────────
+  // ── Supabase: refresh when tab becomes visible ───────────────
   useEffect(() => {
     if (liveMode !== true) return
-    let interval = null
-
-    function startPolling() {
-      interval = setInterval(async () => {
-        if (document.visibilityState !== 'visible') return
-        try {
-          const res = await fetch('/api/tasks')
-          if (!res.ok) return
-          const data = await res.json()
-          if (JSON.stringify(data) !== JSON.stringify(tasksRef.current)) {
-            setTasks(data)
-          }
-        } catch {}
-      }, 30000)
-    }
 
     function handleVisibility() {
       if (document.visibilityState === 'visible') {
-        // Immediate fetch when tab becomes visible again
         fetch('/api/tasks')
           .then(r => r.ok ? r.json() : null)
           .then(data => {
-            if (data && JSON.stringify(data) !== JSON.stringify(tasksRef.current)) {
+            if (data && data.length > 0 && JSON.stringify(data) !== JSON.stringify(tasksRef.current)) {
               setTasks(data)
             }
           })
@@ -476,28 +460,35 @@ export default function App() {
       }
     }
 
-    startPolling()
     document.addEventListener('visibilitychange', handleVisibility)
     return () => {
-      clearInterval(interval)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [liveMode])
 
-  // ── Fallback: localStorage when KV not available ─────────────
+  // ── Fallback: localStorage when Supabase not available ───────
   useEffect(() => {
     if (liveMode !== true) saveToStorage(tasks)
   }, [tasks, liveMode])
 
-  // ── Write full tasks array to KV ─────────────────────────────
+  // ── Write full tasks array to Supabase ───────────────────────
   async function postTasks(updated) {
     try {
-      await fetch('/api/tasks', {
+      const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated),
       })
-    } catch {}
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.error('[postTasks] Supabase write failed:', err?.error ?? `HTTP ${res.status}`)
+        return false
+      }
+      return true
+    } catch (err) {
+      console.error('[postTasks] Network error:', err?.message)
+      return false
+    }
   }
 
   // ── Task operations ──────────────────────────────────────────
