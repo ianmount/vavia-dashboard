@@ -88,8 +88,8 @@ function saveToStorage(tasks) {
 function RetainerUsage({ tasks }) {
   const used = tasks.reduce((sum, t) => sum + (Number(t.actualHours) || 0), 0)
   const remaining = RETAINER_HOURS - used
-  const overHours = Math.floor(Math.max(used - RETAINER_HOURS, 0))
-  const additionalCost = overHours * OVERAGE_RATE
+  const overHours = Math.round(Math.max(used - RETAINER_HOURS, 0) * 100) / 100
+  const additionalCost = Math.round(overHours * OVERAGE_RATE * 100) / 100
   const pct = Math.min((used / RETAINER_HOURS) * 100, 100)
 
   const barCls =
@@ -125,7 +125,7 @@ function RetainerUsage({ tasks }) {
         </div>
         <div className="stat-item">
           <span className={`stat-value ${remainingCls}`}>
-            {remaining < 0 ? `+${Math.floor(Math.abs(remaining))} over` : remaining}
+            {remaining < 0 ? `+${(Math.round(Math.abs(remaining) * 100) / 100).toFixed(2)} over` : remaining}
           </span>
           <span className="stat-label">
             {remaining < 0 ? 'Hours Over Retainer' : 'Hours Remaining'}
@@ -134,12 +134,12 @@ function RetainerUsage({ tasks }) {
         </div>
         <div className="stat-item">
           <span className={`stat-value ${additionalCost > 0 ? 'remaining critical' : 'remaining good'}`}>
-            {additionalCost > 0 ? `$${additionalCost.toLocaleString()}` : '—'}
+            {additionalCost > 0 ? `$${additionalCost.toFixed(2)}` : '—'}
           </span>
           <span className="stat-label">Additional Cost</span>
           <span className="stat-sub">
             {additionalCost > 0
-              ? `${overHours} hr${overHours !== 1 ? 's' : ''} × $${OVERAGE_RATE}/hr`
+              ? `${overHours.toFixed(2)} hr${overHours !== 1 ? 's' : ''} × $${OVERAGE_RATE}/hr`
               : 'within retainer'}
           </span>
         </div>
