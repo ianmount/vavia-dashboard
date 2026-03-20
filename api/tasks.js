@@ -31,23 +31,39 @@ export default async function handler(req, res) {
   } else if (req.method === 'POST') {
     try {
       const tasks = req.body
-      // Replace all rows atomically: delete then insert
-      const { error: delError } = await supabase.from('tasks').delete().neq('id', -1)
-      if (delError) throw delError
-      if (tasks.length > 0) {
-        const { error: insError } = await supabase.from('tasks').insert(
-          tasks.map(t => ({
-            id: t.id,
-            status: t.status,
-            task: t.task,
-            hour_estimate: t.hourEstimate,
-            actual_hours: t.actualHours,
-            timeline: t.timeline,
-            notes: t.notes,
-          }))
-        )
-        if (insError) throw insError
+      const rows = tasks.map(t => ({
+        id: t.id,
+        status: t.status,
+        task: t.task,
+        hour_estimate: t.hourEstimate,
+        actual_hours: t.actualHours,
+        timeline: t.timeline,
+        notes: t.notes,
+      }))
+
+      // Upsert new/updated rows first, then delete any rows no longer in the list.
+      // This order avoids data loss if the delete step fails.
+      if (rows.length > 0) {
+        const { error: upsertError } = await supabase
+          .from('tasks')
+          .upsert(rows, { onConflict: 'id' })
+        if (upsertError) throw upsertError
       }
+
+      // Delete rows whose IDs are no longer present
+      const currentIds = tasks.map(t => t.id)
+      if (currentIds.length > 0) {
+        const { error: delError } = await supabase
+          .from('tasks')
+          .delete()
+          .not('id', 'in', `(${currentIds.join(',')})`)
+        if (delError) throw delError
+      } else {
+        // All tasks deleted — clear the table
+        const { error: delError } = await supabase.from('tasks').delete().neq('id', -1)
+        if (delError) throw delError
+      }
+
       res.status(200).json({ ok: true })
     } catch (err) {
       console.error('[api/tasks] Supabase POST failed:', err?.message)
