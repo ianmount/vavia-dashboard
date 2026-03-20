@@ -543,6 +543,16 @@ export default function App() {
           Track retainer hours and manage project approvals.
         </p>
 
+        <div className="disclaimer-banner">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0, marginTop: 1 }}>
+            <path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Z" fill="currentColor"/>
+            <path d="M8 4.75a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4.75ZM8 11a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" fill="currentColor" transform="translate(0 -0.5)"/>
+          </svg>
+          <span>
+            <strong>Disclaimer:</strong> All numbers shown here are estimated amounts only. The final invoice is subject to change based on final data and actual hours logged.
+          </span>
+        </div>
+
         <RetainerUsage tasks={tasks} />
         <ProjectTable
           tasks={tasks}
