@@ -314,6 +314,7 @@ function ProjectTable({ tasks, onUpdateField, onDeleteTask, onAddTask }) {
                       defaultValue={row.task}
                       key={`task-${row.id}-${row.task}`}
                       placeholder="Task name…"
+                      autoComplete="off"
                       onBlur={e => onUpdateField(row.id, 'task', e.target.value)}
                     />
                   </td>
